@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?
+  firstName     String?
+  lastName      String?
+  image         String?
+  role          UserRole  @default(USER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  camps     Camp[]
+  reviews   Review[]
+  inquiries Inquiry[]
+  accounts  Account[]
+  sessions  Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum UserRole {
+  USER
+  CAMP_OWNER
+  ADMIN
+}
+
+// ==================== TAXONOMY ====================
+
+model Region {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  image       String?
+  parentId    String?
+  parent      Region?  @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children    Region[] @relation("RegionHierarchy")
+  camps       Camp[]
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([slug])
+}
+
+model CampType {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  icon        String?
+  camps       Camp[]
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CampCategory {
+  id        String                 @id @default(cuid())
+  name      String
+  slug      String                 @unique
+  camps     CampCategoryRelation[]
+  sortOrder Int                    @default(0)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+}
+
+// ==================== CAMP ====================
+
+model Camp {
+  id               String  @id @default(cuid())
+  name             String
+  slug             String  @unique
+  description      String? @db.Text
+  shortDescription String? @db.VarChar(500)
+
+  // Location
+  regionId  String
+  region    Region  @relation(fields: [regionId], references: [id])
+  address   String?
+  city      String?
+  country   String?
+  latitude  Float?
+  longitude Float?
+
+  // Camp Info
+  campTypeId String
+  campType   CampType @relation(fields: [campTypeId], references: [id])
+  ageMin     Int?
+  ageMax     Int?
+  founded    Int?
+  staffRatio String?
+  languages  String[] @default([])
+
+  // Media
+  coverImage String?
+  logo       String?
+  videoUrl   String?
+
+  // Owner
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id])
+  website String?
+  email   String?
+  phone   String?
+
+  // Status
+  featured  Boolean @default(false)
+  published Boolean @default(true)
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+
+  // Relations
+  sessions   CampSession[]
+  gallery    CampGallery[]
+  activities CampActivity[]
+  facilities CampFacility[]
+  highlights CampHighlight[]
+  faqs       CampFAQ[]
+  reviews    Review[]
+  inquiries  Inquiry[]
+  categories CampCategoryRelation[]
+  schedule   CampSchedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+  @@index([campTypeId])
+  @@index([published])
+  @@index([featured])
+  @@index([slug])
+}
+
+model CampSession {
+  id        String   @id @default(cuid())
+  campId    String
+  camp      Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  price     Float
+  currency  String   @default("USD")
+  available Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campId])
+}
+
+model CampGallery {
+  id        String   @id @default(cuid())
+  campId    String
+  camp      Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  caption   String?
+  category  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([campId])
+}
+
+model CampActivity {
+  id        String  @id @default(cuid())
+  campId    String
+  camp      Camp    @relation(fields: [campId], references: [id], onDelete: Cascade)
+  name      String
+  icon      String?
+  category  String?
+  sortOrder Int     @default(0)
+
+  @@index([campId])
+}
+
+model CampFacility {
+  id        String  @id @default(cuid())
+  campId    String
+  camp      Camp    @relation(fields: [campId], references: [id], onDelete: Cascade)
+  name      String
+  icon      String?
+  sortOrder Int     @default(0)
+
+  @@index([campId])
+}
+
+model CampHighlight {
+  id        String  @id @default(cuid())
+  campId    String
+  camp      Camp    @relation(fields: [campId], references: [id], onDelete: Cascade)
+  text      String
+  icon      String?
+  sortOrder Int     @default(0)
+
+  @@index([campId])
+}
+
+model CampFAQ {
+  id        String @id @default(cuid())
+  campId    String
+  camp      Camp   @relation(fields: [campId], references: [id], onDelete: Cascade)
+  question  String
+  answer    String @db.Text
+  sortOrder Int    @default(0)
+
+  @@index([campId])
+}
+
+model CampSchedule {
+  id        String  @id @default(cuid())
+  campId    String
+  camp      Camp    @relation(fields: [campId], references: [id], onDelete: Cascade)
+  time      String
+  activity  String
+  sortOrder Int     @default(0)
+
+  @@index([campId])
+}
+
+model CampCategoryRelation {
+  campId     String
+  camp       Camp         @relation(fields: [campId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   CampCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([campId, categoryId])
+}
+
+// ==================== REVIEWS & INQUIRIES ====================
+
+model Review {
+  id         String   @id @default(cuid())
+  campId     String
+  camp       Camp     @relation(fields: [campId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  rating     Float
+  title      String?
+  content    String   @db.Text
+  authorName String?
+  authorType String?
+  approved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([campId])
+  @@index([approved])
+}
+
+model Inquiry {
+  id          String        @id @default(cuid())
+  campId      String
+  camp        Camp          @relation(fields: [campId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id])
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  countryCode String?
+  message     String        @db.Text
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  refererUrl  String?
+  status      InquiryStatus @default(NEW)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([campId])
+  @@index([status])
+}
+
+enum InquiryStatus {
+  NEW
+  READ
+  REPLIED
+  CLOSED
+}
+
+// ==================== CONTENT ====================
+
+model Page {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  content   String   @db.Text
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
